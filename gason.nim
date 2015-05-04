@@ -1,3 +1,7 @@
+const
+  JSON_ZONE_SIZE = 4096
+  JSON_STACK_SIZE = 32
+
 discard """
 #include "gason.h"
 #include <stdlib.h>
@@ -325,4 +329,7 @@ int jsonParse(char *s, char **endptr, JsonValue *value, JsonAllocator &allocator
     return JSON_BREAKING_BAD;
 }
 """
-echo "hi"
+proc test() =
+  echo "hi"
+when isMainModule:
+  test()
