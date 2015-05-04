@@ -332,8 +332,17 @@ int jsonParse(char *s, char **endptr, JsonValue *value, JsonAllocator &allocator
 type
   CArray{.unchecked.}[T] = array[0..0, T]
   # CArray{.unchecked.}[T] = array[0..0, T]
-  Data = CArray[int8]
+  Data = CArray[char]
+proc isspace(c: char): bool {.inline.} =
+  return true #c == ' ' || (c >= '\t' && c <= '\r');
 proc jsonParse(s: Data, size: int32): int =
+  var i = 0'i32
+  var total = 0'i64
+  while i < size:
+    if isspace(s[i]):
+      total += 1
+    inc i
+  echo("totalws=" & $total)
   return 0
 proc Sum(s: Data, size: int32): int64 =
   var i = 0'i32
@@ -341,14 +350,14 @@ proc Sum(s: Data, size: int32): int64 =
   echo("size=" & $size)
   while i < size:
     #echo(b[i])
-    total += s[i]
+    total += cast[int](s[i])
     inc i
   echo("last=" & $(s[i]))
   echo("total=" & $total)
   return total
 proc nim_jsonParse*(b: Data, size: int32, e: ptr ptr int8, val: ptr cint): cint
   {.cdecl, exportc, dynlib.} =
-  discard Sum(b, size)
+  #discard Sum(b, size)
   return cast[cint](jsonParse(b, size))
 proc test() =
   echo "hi"
