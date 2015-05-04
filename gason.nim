@@ -330,9 +330,9 @@ int jsonParse(char *s, char **endptr, JsonValue *value, JsonAllocator &allocator
 }
 """
 type
-  CArray{.unchecked.} = array[0..0, int8]
+  CArray{.unchecked.}[T] = array[0..0, T]
   # CArray{.unchecked.}[T] = array[0..0, T]
-proc nim_jsonParse*(b: CArray, size: int32, e: ptr ptr int8, val: ptr cint): cint
+proc nim_jsonParse*(b: CArray[int8], size: int32, e: ptr ptr int8, val: ptr cint): cint
   {.cdecl, exportc, dynlib.} =
   var i = 0'i32
   var total = 0'i64
