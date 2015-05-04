@@ -1,3 +1,4 @@
+import tables
 const
   JSON_ZONE_SIZE = 4096
   JSON_STACK_SIZE = 32
@@ -347,6 +348,24 @@ type
     JSON_TRUE,
     JSON_FALSE,
     JSON_NULL,
+  JsonValueKind = enum
+    kString, kHash, kArray, kNil
+  JsonValue = ref JsonValueObj
+  JsonValueObj {.acyclic.} = object
+    case kind: JsonValueKind
+    of kString:
+      vString: string
+    of kHash:
+      vHash: tables.Table[string, JsonValue]
+    of kArray:
+      vArray: seq[JsonValue]
+    of kNil:
+      nil
+  JsonNode = ptr JsonNodeObj
+  JsonNodeObj = object
+    value: JsonValue
+    next: JsonNode
+    key: ptr char
 
 discard """
   XX(OK, "ok")                                     \
@@ -368,14 +387,24 @@ proc isdigit(c: char): bool {.inline.} =
     return c >= '0' and c <= '9';
 proc isxdigit(c: int8): bool {.inline.} =
     return (c >= cast[int8]('0') and c <= cast[int8]('9')) or ((c and not cast[int8](' ')) >= cast[int8]('A') and (c and not cast[int8](' ')) <= cast[int8]('F'));
+#proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.} =
+proc insertAfter(tail: ptr JsonNode): ptr JsonNode {.inline.} =
+  discard """
+    if (!tail)
+        return node->next = node;
+    node->next = tail->next;
+    tail->next = node;
+    return node;
+  """
+
 proc jsonParse(s: Data, size: int32): ErrNo =
   var i = 0'i32
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
+  var tails: array[0.. <JSON_STACK_SIZE, ptr JsonNode];
   var tags: array[0.. <JSON_STACK_SIZE, JsonTag]
-  #var tags = array[0..JSON_STACK_SIZE, JsonTag];
   var keys: array[0.. <JSON_STACK_SIZE, ptr char];
-  #JsonValue o;
+  var o: JsonValue
   var pos = -1;
   #*endptr = s;
   var separator: bool = true
@@ -395,6 +424,10 @@ proc jsonParse(s: Data, size: int32): ErrNo =
     if tags[pos] == JSON_OBJECT:
       if keys[pos] == nil:
         continue
+    else:
+      #tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode) - sizeof(char *)));
+      tails[pos] = insertAfter(tails[pos])
+    tails[pos].value = o
     discard """
     if (tags[pos] == JSON_OBJECT) {
         if (!keys[pos]) {
