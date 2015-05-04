@@ -335,11 +335,11 @@ type
   # CArray{.unchecked.}[T] = array[0..0, T]
   Data = CArray[char]
   ErrNo = enum
-    OK,
-    BAD_NUMBER, BAD_STRING, BAD_IDENTIFIER,
-    STACK_OVERFLOW, STACK_UNDERFLOW,
-    MISMATCH_BRACKET, UNEXPECTED_CHARACTER, UNQUOTED_KEY,
-    BREAKING_BAD
+    JSON_OK,
+    JSON_BAD_NUMBER, JSON_BAD_STRING, JSON_BAD_IDENTIFIER,
+    JSON_STACK_OVERFLOW, JSON_STACK_UNDERFLOW,
+    JSON_MISMATCH_BRACKET, JSON_UNEXPECTED_CHARACTER, JSON_UNQUOTED_KEY,
+    JSON_BREAKING_BAD
   JsonTag = enum
     JSON_NUMBER,
     JSON_STRING,
@@ -367,6 +367,8 @@ type
     next: JsonNode
     key: ptr char
 
+proc getTag(me: JsonValue): JsonTag =
+  return JSON_NULL
 discard """
   XX(OK, "ok")                                     \
   XX(BAD_NUMBER, "bad number")                     \
@@ -420,10 +422,17 @@ proc jsonParse(s: Data, size: int32): ErrNo =
     if pos == -1:
         #*endptr = s;
         #*value = o;
-        return OK;
+        return JSON_OK;
     if tags[pos] == JSON_OBJECT:
       if keys[pos] == nil:
+        if o.getTag() != JSON_STRING:
+            return JSON_UNQUOTED_KEY;
+        #keys[pos] = o.toString();
         continue
+      #tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode)));
+      tails[pos] = insertAfter(tails[pos])
+      tails[pos].key = keys[pos];
+      keys[pos] = nil
     else:
       #tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode) - sizeof(char *)));
       tails[pos] = insertAfter(tails[pos])
@@ -439,13 +448,10 @@ proc jsonParse(s: Data, size: int32): ErrNo =
         tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode)));
         tails[pos]->key = keys[pos];
         keys[pos] = nullptr;
-    } else {
-        tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode) - sizeof(char *)));
     }
-    tails[pos]->value = o;
     """
   echo("totalws=" & $total)
-  return BREAKING_BAD
+  return JSON_BREAKING_BAD
 proc Sum(s: Data, size: int32): int64 =
   var i = 0'i32
   var total = 0'i64
