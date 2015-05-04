@@ -333,17 +333,83 @@ type
   CArray{.unchecked.}[T] = array[0..0, T]
   # CArray{.unchecked.}[T] = array[0..0, T]
   Data = CArray[char]
+  ErrNo = enum
+    OK,
+    BAD_NUMBER, BAD_STRING, BAD_IDENTIFIER,
+    STACK_OVERFLOW, STACK_UNDERFLOW,
+    MISMATCH_BRACKET, UNEXPECTED_CHARACTER, UNQUOTED_KEY,
+    BREAKING_BAD
+  JsonTag = enum
+    JSON_NUMBER,
+    JSON_STRING,
+    JSON_ARRAY,
+    JSON_OBJECT,
+    JSON_TRUE,
+    JSON_FALSE,
+    JSON_NULL,
+
+discard """
+  XX(OK, "ok")                                     \
+  XX(BAD_NUMBER, "bad number")                     \
+  XX(BAD_STRING, "bad string")                     \
+  XX(BAD_IDENTIFIER, "bad identifier")             \
+  XX(STACK_OVERFLOW, "stack overflow")             \
+  XX(STACK_UNDERFLOW, "stack underflow")           \
+  XX(MISMATCH_BRACKET, "mismatch bracket")         \
+  XX(UNEXPECTED_CHARACTER, "unexpected character") \
+  XX(UNQUOTED_KEY, "unquoted key")                 \
+  XX(BREAKING_BAD, "breaking bad")
+  """
 proc isspace(c: char): bool {.inline.} =
-  return true #c == ' ' || (c >= '\t' && c <= '\r');
-proc jsonParse(s: Data, size: int32): int =
+  return c == ' ' or (c >= '\t' and c <= '\r');
+proc isdelim(c: char): bool {.inline.} =
+  return c == ',' or c == ':' or c == ']' or c == '}' or isspace(c) or c == '\0';
+proc isdigit(c: char): bool {.inline.} =
+    return c >= '0' and c <= '9';
+proc isxdigit(c: int8): bool {.inline.} =
+    return (c >= cast[int8]('0') and c <= cast[int8]('9')) or ((c and not cast[int8](' ')) >= cast[int8]('A') and (c and not cast[int8](' ')) <= cast[int8]('F'));
+proc jsonParse(s: Data, size: int32): ErrNo =
   var i = 0'i32
   var total = 0'i64
+  #JsonNode *tails[JSON_STACK_SIZE];
+  var tags: array[0..31, int]
+  #var tags = array[0..JSON_STACK_SIZE, JsonTag];
+  #char *keys[JSON_STACK_SIZE];
+  #JsonValue o;
+  var pos = -1;
+  #*endptr = s;
+  var separator: bool = true
   while i < size:
     if isspace(s[i]):
       total += 1
+      inc i
+      continue
+    let c = s[i]
     inc i
+    # case
+    separator = false;
+    if pos == -1:
+        #*endptr = s;
+        #*value = o;
+        return OK;
+    discard """
+    if (tags[pos] == JSON_OBJECT) {
+        if (!keys[pos]) {
+            if (o.getTag() != JSON_STRING)
+                return JSON_UNQUOTED_KEY;
+            keys[pos] = o.toString();
+            continue;
+        }
+        tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode)));
+        tails[pos]->key = keys[pos];
+        keys[pos] = nullptr;
+    } else {
+        tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode) - sizeof(char *)));
+    }
+    tails[pos]->value = o;
+    """
   echo("totalws=" & $total)
-  return 0
+  return BREAKING_BAD
 proc Sum(s: Data, size: int32): int64 =
   var i = 0'i32
   var total = 0'i64
