@@ -372,9 +372,9 @@ proc jsonParse(s: Data, size: int32): ErrNo =
   var i = 0'i32
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
-  var tags: array[0..31, int]
+  var tags: array[0.. <JSON_STACK_SIZE, JsonTag]
   #var tags = array[0..JSON_STACK_SIZE, JsonTag];
-  #char *keys[JSON_STACK_SIZE];
+  var keys: array[0.. <JSON_STACK_SIZE, ptr char];
   #JsonValue o;
   var pos = -1;
   #*endptr = s;
@@ -392,6 +392,9 @@ proc jsonParse(s: Data, size: int32): ErrNo =
         #*endptr = s;
         #*value = o;
         return OK;
+    if tags[pos] == JSON_OBJECT:
+      if keys[pos] == nil:
+        continue
     discard """
     if (tags[pos] == JSON_OBJECT) {
         if (!keys[pos]) {
