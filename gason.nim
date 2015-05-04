@@ -329,8 +329,20 @@ int jsonParse(char *s, char **endptr, JsonValue *value, JsonAllocator &allocator
     return JSON_BREAKING_BAD;
 }
 """
-proc nim_jsonParse*(b: ptr int8, e: ptr ptr int8, val: ptr cint): cint
+type
+  CArray{.unchecked.} = array[0..0, int8]
+  # CArray{.unchecked.}[T] = array[0..0, T]
+proc nim_jsonParse*(b: CArray, size: int32, e: ptr ptr int8, val: ptr cint): cint
   {.cdecl, exportc, dynlib.} =
+  var i = 0'i32
+  var total = 0'i64
+  echo("size=" & $size)
+  while i < size:
+    #echo(b[i])
+    total += b[i]
+    inc i
+  echo("last=" & $(b[i]))
+  echo("total=" & $total)
   return 0
 proc test() =
   echo "hi"
