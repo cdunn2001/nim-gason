@@ -329,6 +329,9 @@ int jsonParse(char *s, char **endptr, JsonValue *value, JsonAllocator &allocator
     return JSON_BREAKING_BAD;
 }
 """
+proc nim_jsonParse*(b: ptr int8, e: ptr ptr int8, val: ptr cint): cint
+  {.cdecl, exportc, dynlib.} =
+  return 0
 proc test() =
   echo "hi"
 when isMainModule:
