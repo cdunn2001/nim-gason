@@ -332,18 +332,21 @@ int jsonParse(char *s, char **endptr, JsonValue *value, JsonAllocator &allocator
 type
   CArray{.unchecked.}[T] = array[0..0, T]
   # CArray{.unchecked.}[T] = array[0..0, T]
-proc nim_jsonParse*(b: CArray[int8], size: int32, e: ptr ptr int8, val: ptr cint): cint
-  {.cdecl, exportc, dynlib.} =
+  Data = CArray[int8]
+proc jsonParse(s: Data, size: int32): int =
   var i = 0'i32
   var total = 0'i64
   echo("size=" & $size)
   while i < size:
     #echo(b[i])
-    total += b[i]
+    total += s[i]
     inc i
-  echo("last=" & $(b[i]))
+  echo("last=" & $(s[i]))
   echo("total=" & $total)
   return 0
+proc nim_jsonParse*(b: Data, size: int32, e: ptr ptr int8, val: ptr cint): cint
+  {.cdecl, exportc, dynlib.} =
+  return cast[cint](jsonParse(b, size))
 proc test() =
   echo "hi"
 when isMainModule:
