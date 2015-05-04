@@ -334,6 +334,8 @@ type
   # CArray{.unchecked.}[T] = array[0..0, T]
   Data = CArray[int8]
 proc jsonParse(s: Data, size: int32): int =
+  return 0
+proc Sum(s: Data, size: int32): int64 =
   var i = 0'i32
   var total = 0'i64
   echo("size=" & $size)
@@ -343,9 +345,10 @@ proc jsonParse(s: Data, size: int32): int =
     inc i
   echo("last=" & $(s[i]))
   echo("total=" & $total)
-  return 0
+  return total
 proc nim_jsonParse*(b: Data, size: int32, e: ptr ptr int8, val: ptr cint): cint
   {.cdecl, exportc, dynlib.} =
+  discard Sum(b, size)
   return cast[cint](jsonParse(b, size))
 proc test() =
   echo "hi"
