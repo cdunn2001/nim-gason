@@ -340,6 +340,7 @@ type
     JSON_STACK_OVERFLOW, JSON_STACK_UNDERFLOW,
     JSON_MISMATCH_BRACKET, JSON_UNEXPECTED_CHARACTER, JSON_UNQUOTED_KEY,
     JSON_BREAKING_BAD
+  ErrNoEnd = tuple[errno: ErrNo, unused: int32]
   JsonTag = enum
     JSON_NUMBER,
     JSON_STRING,
@@ -424,7 +425,7 @@ proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.
     tail.next = node
   return node
 
-proc jsonParse(full: cstring, size: int32): ErrNo =
+proc jsonParse(full: cstring, size: int32): ErrNoEnd =
   var next: int32 = 0
   let toofar: int32 = next + size
   var unused: int32 = 0
@@ -447,27 +448,32 @@ proc jsonParse(full: cstring, size: int32): ErrNo =
     case curr:
     of '-':
       if not isdigit(full[next]) and full[next] != '.':
-        unused = next
-        return JSON_BAD_NUMBER;
+        result.unused = next
+        result.errno = JSON_BAD_NUMBER
+        return
     of '0' .. '9':
         let p = number(full, unused, next)
         o = JsonNodeValue(kind: kString, pair: p)
         next = p.send
         if not isdelim(full[next]):
-          unused = next
-          return JSON_BAD_NUMBER;
+          result.unused = next
+          result.errno = JSON_BAD_NUMBER
+          return
         break;
     else:
-      return JSON_BREAKING_BAD #!!!
+      result.errno = JSON_BREAKING_BAD #!!!
+      return
     separator = false;
     if pos == -1:
-        unused = next
+        result.unused = next
+        result.errno = JSON_OK
         #*value = o;
-        return JSON_OK;
+        return
     if tags[pos] == JSON_OBJECT:
       if keys[pos].send == 0:
         if o.getKind() != kString:
-            return JSON_UNQUOTED_KEY;
+          result.errno = JSON_UNQUOTED_KEY
+          return
         keys[pos] = o.toString();
         continue
       tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonKeyNode))))
@@ -477,7 +483,8 @@ proc jsonParse(full: cstring, size: int32): ErrNo =
       tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonNode))))
     tails[pos].value = o
   echo("totalws=" & $total)
-  return JSON_BREAKING_BAD
+  result.errno = JSON_BREAKING_BAD
+  return
 proc Sum(b: ptr char, size: int32): int64 =
   var s = cast[cstring](b)
   var i = 0'i32
