@@ -460,6 +460,27 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
           result.errno = JSON_BAD_NUMBER
           return
         break;
+    of 't':
+      if (not(full[next+0] == 'r' and full[next+1] == 'u' and full[next+2] == 'e' and isdelim(full[next+3]))):
+        result.errno = JSON_BAD_IDENTIFIER
+        return
+      o = JsonNodeValue(kind: kString, pair: (next-1, next+3));
+      next += 3;
+      break;
+    of 'f':
+      if (not(full[next+0] == 'a' and full[next+1] == 'l' and full[next+2] == 's' and full[next+3] == 'e' and isdelim(full[next+4]))):
+        result.errno = JSON_BAD_IDENTIFIER
+        return
+      o = JsonNodeValue(kind: kString, pair: (next-1, next+4));
+      next += 4;
+      break;
+    of 'n':
+      if (not(full[next] == 'u' and full[next+1] == 'l' and full[next+2] == 'l' and isdelim(full[next+3]))):
+        result.errno = JSON_BAD_IDENTIFIER
+        return
+      o = JsonNodeValue(kind: kString, pair: (next-1, next+3));
+      next += 3;
+      break;
     else:
       result.errno = JSON_BREAKING_BAD #!!!
       return
