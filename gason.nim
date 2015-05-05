@@ -434,6 +434,7 @@ proc listToNode(tail: ptr JsonNode): ptr JsonNode {.inline.} =
 proc jsonParse(full: cstring, size: int32): ErrNoEnd =
   result.unused = 0
   var next: int32 = 0
+  echo("next:" & full[next])
   let toofar: int32 = next + size
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
@@ -450,6 +451,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       inc next
       continue
     let curr: char = full[next]
+    echo("read:" & curr)
     inc next
     case curr:
     of '-':
@@ -513,6 +515,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       dec pos
       break
     of '[':
+      echo "Found ["
       inc pos
       if (pos == JSON_STACK_SIZE):
         result.errno = JSON_STACK_OVERFLOW
@@ -523,6 +526,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       separator = true
       continue
     of '{':
+      echo "Found {"
       inc pos
       if (pos == JSON_STACK_SIZE):
         result.errno = JSON_STACK_OVERFLOW
@@ -586,7 +590,7 @@ proc Sum(b: ptr char, size: int32): int64 =
 proc nim_jsonParse*(b: ptr char, size: int32, e: ptr ptr char, val: ptr cint): cint
   {.cdecl, exportc, dynlib.} =
   #discard Sum(b, size)
-  let full: cstring = cast[string](b)
+  let full: cstring = cast[cstring](b)
   var res = jsonParse(full, size)
   echo("res=" & $res)
 proc test() =
