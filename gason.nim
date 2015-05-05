@@ -386,9 +386,60 @@ proc isspace(c: char): bool {.inline.} =
 proc isdelim(c: char): bool {.inline.} =
   return c == ',' or c == ':' or c == ']' or c == '}' or isspace(c) or c == '\0';
 proc isdigit(c: char): bool {.inline.} =
-    return c >= '0' and c <= '9';
+  return c >= '0' and c <= '9';
 proc isxdigit(c: int8): bool {.inline.} =
-    return (c >= cast[int8]('0') and c <= cast[int8]('9')) or ((c and not cast[int8](' ')) >= cast[int8]('A') and (c and not cast[int8](' ')) <= cast[int8]('F'));
+  return (c >= cast[int8]('0') and c <= cast[int8]('9')) or ((c and not cast[int8](' ')) >= cast[int8]('A') and (c and not cast[int8](' ')) <= cast[int8]('F'));
+proc char2int(c: int8): int {.inline.} =
+  if c <= cast[int8]('9'):
+    return cast[int8](c) - cast[int8]('0');
+  return (c and not cast[int8](' ')) - cast[int8]('A') + 10;
+proc string2double(s: ptr char, endptr: ptr ptr char): float64 =
+  discard """
+  char ch = *s;
+  if (ch == '-')
+      ++s;
+
+  double result = 0;
+  while (isdigit(*s))
+      result = (result * 10) + (*s++ - '0');
+
+  if (*s == '.') {
+      ++s;
+
+      double fraction = 1;
+      while (isdigit(*s)) {
+          fraction *= 0.1;
+          result += (*s++ - '0') * fraction;
+      }
+  }
+
+  if (*s == 'e' || *s == 'E') {
+      ++s;
+
+      double base = 10;
+      if (*s == '+')
+          ++s;
+      else if (*s == '-') {
+          ++s;
+          base = 0.1;
+      }
+
+      int exponent = 0;
+      while (isdigit(*s))
+          exponent = (exponent * 10) + (*s++ - '0');
+
+      double power = 1;
+      for (; exponent; exponent >>= 1, base *= base)
+          if (exponent & 1)
+              power *= base;
+
+      result *= power;
+  }
+
+  *endptr = s;
+  return ch == '-' ? -result : result;
+"""
+
 #proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.} =
 proc insertAfter(tail: ptr JsonNode): ptr JsonNode {.inline.} =
   discard """
@@ -415,9 +466,21 @@ proc jsonParse(s: Data, size: int32): ErrNo =
       total += 1
       inc i
       continue
-    let c = s[i]
+    let curr = s[i]
     inc i
-    # case
+    case curr:
+    of '-':
+      if not isdigit(s[i]) and s[i] != '.':
+        #*endptr = s;
+        return JSON_BAD_NUMBER;
+    of '0' .. '9':
+        #o = JsonValue(string2double(*endptr, &s));
+        if not isdelim(s[i]):
+          #*endptr = s;
+          return JSON_BAD_NUMBER;
+        break;
+    else:
+      return JSON_BREAKING_BAD #!!!
     separator = false;
     if pos == -1:
         #*endptr = s;
@@ -437,19 +500,6 @@ proc jsonParse(s: Data, size: int32): ErrNo =
       #tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode) - sizeof(char *)));
       tails[pos] = insertAfter(tails[pos])
     tails[pos].value = o
-    discard """
-    if (tags[pos] == JSON_OBJECT) {
-        if (!keys[pos]) {
-            if (o.getTag() != JSON_STRING)
-                return JSON_UNQUOTED_KEY;
-            keys[pos] = o.toString();
-            continue;
-        }
-        tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode)));
-        tails[pos]->key = keys[pos];
-        keys[pos] = nullptr;
-    }
-    """
   echo("totalws=" & $total)
   return JSON_BREAKING_BAD
 proc Sum(s: Data, size: int32): int64 =
