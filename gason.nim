@@ -377,12 +377,15 @@ type
   JsonKeyNode = object
     value: JsonNodeValue
     next: ptr JsonKeyNode
-    key: ptr char
+    key: cstring
 
 
 
 proc getKind(me: JsonNodeValue): JsonValueKind =
   return me.kind
+proc toString(me: JsonNodeValue): cstring =
+  assert(me.getKind() == kString);
+  return me.vString
 discard """
   XX(OK, "ok")                                     \
   XX(BAD_NUMBER, "bad number")                     \
@@ -469,7 +472,7 @@ proc jsonParse(s: Data, size: int32): ErrNo =
   #JsonNode *tails[JSON_STACK_SIZE];
   var tails: array[0.. <JSON_STACK_SIZE, ptr JsonNode];
   var tags: array[0.. <JSON_STACK_SIZE, JsonTag]
-  var keys: array[0.. <JSON_STACK_SIZE, ptr char];
+  var keys: array[0.. <JSON_STACK_SIZE, cstring];
   var o: JsonNodeValue
   var pos = -1;
   #*endptr = s;
@@ -503,7 +506,7 @@ proc jsonParse(s: Data, size: int32): ErrNo =
       if keys[pos] == nil:
         if o.getKind() != kString:
             return JSON_UNQUOTED_KEY;
-        #keys[pos] = o.toString();
+        keys[pos] = o.toString();
         continue
       tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonKeyNode))))
       cast[ptr JsonKeyNode](tails[pos]).key = keys[pos];
