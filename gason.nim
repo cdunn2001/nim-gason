@@ -361,13 +361,27 @@ type
       vArray: seq[JsonValue]
     of kNil:
       nil
-  JsonNode = ptr JsonNodeObj
-  JsonNodeObj = object
-    value: JsonValue
-    next: JsonNode
+  JsonNodeValue = object
+    case kind: JsonValueKind
+    of kString:
+      vString: cstring
+    of kHash:
+      vHash: ptr JsonKeyNode
+    of kArray:
+      vArray: ptr JsonNode
+    else:
+      nil
+  JsonNode = object
+    value: JsonNodeValue
+    next: ptr JsonNode
+  JsonKeyNode = object
+    value: JsonNodeValue
+    next: ptr JsonKeyNode
     key: ptr char
 
-proc getTag(me: JsonValue): JsonTag =
+
+
+proc getTag(me: JsonNodeValue): JsonTag =
   return JSON_NULL
 discard """
   XX(OK, "ok")                                     \
@@ -441,14 +455,13 @@ proc string2double(s: ptr char, endptr: ptr ptr char): float64 =
 """
 
 #proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.} =
-proc insertAfter(tail: ptr JsonNode): ptr JsonNode {.inline.} =
-  discard """
-    if (!tail)
-        return node->next = node;
-    node->next = tail->next;
-    tail->next = node;
-    return node;
-  """
+proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.} =
+  if tail == nil:
+    node.next = node
+  else:
+    node.next = tail.next
+    tail.next = node
+  return node
 
 proc jsonParse(s: Data, size: int32): ErrNo =
   var i = 0'i32
@@ -457,7 +470,7 @@ proc jsonParse(s: Data, size: int32): ErrNo =
   var tails: array[0.. <JSON_STACK_SIZE, ptr JsonNode];
   var tags: array[0.. <JSON_STACK_SIZE, JsonTag]
   var keys: array[0.. <JSON_STACK_SIZE, ptr char];
-  var o: JsonValue
+  var o: JsonNodeValue
   var pos = -1;
   #*endptr = s;
   var separator: bool = true
@@ -492,13 +505,12 @@ proc jsonParse(s: Data, size: int32): ErrNo =
             return JSON_UNQUOTED_KEY;
         #keys[pos] = o.toString();
         continue
-      #tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode)));
-      tails[pos] = insertAfter(tails[pos])
-      tails[pos].key = keys[pos];
+      tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonKeyNode))))
+      cast[ptr JsonKeyNode](tails[pos]).key = keys[pos];
       keys[pos] = nil
     else:
       #tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode) - sizeof(char *)));
-      tails[pos] = insertAfter(tails[pos])
+      tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonNode))))
     tails[pos].value = o
   echo("totalws=" & $total)
   return JSON_BREAKING_BAD
