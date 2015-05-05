@@ -381,8 +381,8 @@ type
 
 
 
-proc getTag(me: JsonNodeValue): JsonTag =
-  return JSON_NULL
+proc getKind(me: JsonNodeValue): JsonValueKind =
+  return me.kind
 discard """
   XX(OK, "ok")                                     \
   XX(BAD_NUMBER, "bad number")                     \
@@ -501,7 +501,7 @@ proc jsonParse(s: Data, size: int32): ErrNo =
         return JSON_OK;
     if tags[pos] == JSON_OBJECT:
       if keys[pos] == nil:
-        if o.getTag() != JSON_STRING:
+        if o.getKind() != kString:
             return JSON_UNQUOTED_KEY;
         #keys[pos] = o.toString();
         continue
