@@ -424,6 +424,12 @@ proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.
     node.next = tail.next
     tail.next = node
   return node
+proc listToNode(tail: ptr JsonNode): ptr JsonNode {.inline.} =
+  if tail != nil:
+    let head = tail.next
+    tail.next = nil
+    return head
+  return nil
 
 proc jsonParse(full: cstring, size: int32): ErrNoEnd =
   result.unused = 0
@@ -481,8 +487,67 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       o = JsonNodeValue(kind: kString, pair: (next-1, next+3));
       next += 3;
       break;
+    of ']':
+      if (pos == -1):
+        result.errno = JSON_STACK_UNDERFLOW
+        return
+      if (tags[pos] != JSON_ARRAY):
+          result.errno = JSON_MISMATCH_BRACKET
+          return
+      let node = listToNode(tails[pos])
+      o = JsonNodeValue(kind: kArray, vArray: node)
+      dec pos
+      break
+    of '}':
+      if (pos == -1):
+        result.errno = JSON_STACK_UNDERFLOW
+        return
+      if (tags[pos] != JSON_OBJECT):
+        result.errno = JSON_MISMATCH_BRACKET
+        return
+      if (keys[pos] != defaultkey):
+        result.errno = JSON_UNEXPECTED_CHARACTER
+        return
+      let node = cast[ptr JsonKeyNode](listToNode(tails[pos]))
+      o = JsonNodeValue(kind: kHash, vHash: node)
+      dec pos
+      break
+    of '[':
+      inc pos
+      if (pos == JSON_STACK_SIZE):
+        result.errno = JSON_STACK_OVERFLOW
+        return
+      tails[pos] = nil
+      tags[pos] = JSON_ARRAY
+      keys[pos] = defaultkey
+      separator = true
+      continue
+    of '{':
+      inc pos
+      if (pos == JSON_STACK_SIZE):
+        result.errno = JSON_STACK_OVERFLOW
+        return
+      tails[pos] = nil
+      tags[pos] = JSON_OBJECT
+      keys[pos] = defaultkey
+      separator = true
+      continue;
+    of ':':
+      if (separator or keys[pos] == defaultkey):
+        result.errno = JSON_UNEXPECTED_CHARACTER
+        return
+      separator = true
+      continue
+    of ',':
+      if (separator or keys[pos] != defaultkey):
+        result.errno = JSON_UNEXPECTED_CHARACTER
+        return
+      separator = true
+      continue
+    of '\0':
+        continue
     else:
-      result.errno = JSON_BREAKING_BAD #!!!
+      result.errno = JSON_UNEXPECTED_CHARACTER
       return
     separator = false;
     if pos == -1:
@@ -523,6 +588,7 @@ proc nim_jsonParse*(b: ptr char, size: int32, e: ptr ptr char, val: ptr cint): c
   #discard Sum(b, size)
   let full: cstring = cast[string](b)
   var res = jsonParse(full, size)
+  echo("res=" & $res)
 proc test() =
   echo "hi"
 when isMainModule:
