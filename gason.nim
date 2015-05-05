@@ -350,6 +350,7 @@ type
     JSON_NULL,
   JsonValueKind = enum
     kString, kHash, kArray, kNil
+  IntPair = tuple[sbeg: int32, send: int32]
   JsonValue = ref JsonValueObj
   JsonValueObj {.acyclic.} = object
     case kind: JsonValueKind
@@ -364,7 +365,7 @@ type
   JsonNodeValue = object
     case kind: JsonValueKind
     of kString:
-      vString: cstring
+      pair: IntPair
     of kHash:
       vHash: ptr JsonKeyNode
     of kArray:
@@ -377,13 +378,13 @@ type
   JsonKeyNode = object
     value: JsonNodeValue
     next: ptr JsonKeyNode
-    key: cstring
+    key: IntPair
 
 proc getKind(me: JsonNodeValue): JsonValueKind =
   return me.kind
-proc toString(me: JsonNodeValue): cstring =
+proc toString(me: JsonNodeValue): IntPair =
   assert(me.getKind() == kString);
-  return me.vString
+  return me.pair
 proc isspace(c: char): bool {.inline.} =
   return c == ' ' or (c >= '\t' and c <= '\r');
 proc isdelim(c: char): bool {.inline.} =
@@ -396,26 +397,23 @@ proc char2int(c: int8): int {.inline.} =
   if c <= cast[int8]('9'):
     return cast[int8](c) - cast[int8]('0');
   return (c and not cast[int8](' ')) - cast[int8]('A') + 10;
-proc number(b: ptr char, endptr: ptr ptr char): ptr char =
-  var s: cstring = cast[cstring](b)
-  var i = 0
-  var ch: char = s[0]
-  if ch == '-':
+proc number(full: cstring, sbeg: int32, send: int32): IntPair =
+  var i = sbeg
+  if full[i] == '-':
     inc i
-  while isdigit(s[i]):
+  while isdigit(full[i]):
       inc i
-  if s[i] == '.':
+  if full[i] == '.':
     inc i
-    while isdigit(s[i]):
+    while isdigit(full[i]):
       inc i
-  if s[i] == 'e' or s[i] == 'E':
+  if full[i] == 'e' or full[i] == 'E':
     inc i
-    if s[i] == '+' or s[i] == '-':
+    if full[i] == '+' or full[i] == '-':
       inc i
-    while isdigit(s[i]):
+    while isdigit(full[i]):
       inc i
-    endptr[] = addr s[i]
-  return addr s[0]  # NOT RIGHT!!!
+  return (sbeg, i)
 
 #proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.} =
 proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.} =
@@ -426,56 +424,55 @@ proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.
     tail.next = node
   return node
 
-proc jsonParse(b: ptr char, size: int32, endptr: ptr ptr char): ErrNo =
-  var s: cstring = cast[cstring](b)
-  var i = 0'i32
+proc jsonParse(full: cstring, size: int32): ErrNo =
+  var next: int32 = 0
+  let toofar: int32 = next + size
+  var unused: int32 = 0
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
   var tails: array[0.. <JSON_STACK_SIZE, ptr JsonNode];
   var tags: array[0.. <JSON_STACK_SIZE, JsonTag]
-  var keys: array[0.. <JSON_STACK_SIZE, cstring];
+  var keys: array[0.. <JSON_STACK_SIZE, IntPair];
+  let defaultkey: IntPair = (sbeg: 0'i32, send: 0'i32)
   var o: JsonNodeValue
   var pos = -1;
-  endptr[] = b;
   var separator: bool = true
-  while i < size:
-    if isspace(s[i]):
+  while next < toofar:
+    if isspace(full[next]):
       total += 1
-      inc i
+      inc next
       continue
-    let curr: ptr char = addr s[i]
-    inc i
-    case curr[]:
+    let curr: char = full[next]
+    inc next
+    case curr:
     of '-':
-      if not isdigit(s[i]) and s[i] != '.':
-        endptr[] = addr s[i]
+      if not isdigit(full[next]) and full[next] != '.':
+        unused = next
         return JSON_BAD_NUMBER;
     of '0' .. '9':
-        var e: ptr char = addr s[i]
-        var n = number(endptr[], addr e)
-        o = JsonNodeValue(kind: kString, vstring: n)
-        s = cast[cstring](e)
-        i = 0
-        if not isdelim(s[i]):
-          endptr[] = addr s[i]
+        let p = number(full, unused, next)
+        o = JsonNodeValue(kind: kString, pair: p)
+        next = p.send
+        if not isdelim(full[next]):
+          unused = next
           return JSON_BAD_NUMBER;
         break;
     else:
       return JSON_BREAKING_BAD #!!!
     separator = false;
     if pos == -1:
-        endptr[] = addr s[i];
+        unused = next
         #*value = o;
         return JSON_OK;
     if tags[pos] == JSON_OBJECT:
-      if keys[pos] == nil:
+      if keys[pos].send == 0:
         if o.getKind() != kString:
             return JSON_UNQUOTED_KEY;
         keys[pos] = o.toString();
         continue
       tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonKeyNode))))
       cast[ptr JsonKeyNode](tails[pos]).key = keys[pos];
-      keys[pos] = nil
+      keys[pos] = defaultkey
     else:
       tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonNode))))
     tails[pos].value = o
@@ -496,7 +493,8 @@ proc Sum(b: ptr char, size: int32): int64 =
 proc nim_jsonParse*(b: ptr char, size: int32, e: ptr ptr char, val: ptr cint): cint
   {.cdecl, exportc, dynlib.} =
   #discard Sum(b, size)
-  return cast[cint](jsonParse(b, size, e))
+  let full: cstring = cast[string](b)
+  var res = jsonParse(full, size)
 proc test() =
   echo "hi"
 when isMainModule:
