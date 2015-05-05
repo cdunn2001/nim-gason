@@ -386,18 +386,6 @@ proc getKind(me: JsonNodeValue): JsonValueKind =
 proc toString(me: JsonNodeValue): cstring =
   assert(me.getKind() == kString);
   return me.vString
-discard """
-  XX(OK, "ok")                                     \
-  XX(BAD_NUMBER, "bad number")                     \
-  XX(BAD_STRING, "bad string")                     \
-  XX(BAD_IDENTIFIER, "bad identifier")             \
-  XX(STACK_OVERFLOW, "stack overflow")             \
-  XX(STACK_UNDERFLOW, "stack underflow")           \
-  XX(MISMATCH_BRACKET, "mismatch bracket")         \
-  XX(UNEXPECTED_CHARACTER, "unexpected character") \
-  XX(UNQUOTED_KEY, "unquoted key")                 \
-  XX(BREAKING_BAD, "breaking bad")
-  """
 proc isspace(c: char): bool {.inline.} =
   return c == ' ' or (c >= '\t' and c <= '\r');
 proc isdelim(c: char): bool {.inline.} =
