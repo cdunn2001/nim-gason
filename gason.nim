@@ -379,8 +379,6 @@ type
     next: ptr JsonKeyNode
     key: cstring
 
-
-
 proc getKind(me: JsonNodeValue): JsonValueKind =
   return me.kind
 proc toString(me: JsonNodeValue): cstring =
@@ -398,12 +396,13 @@ proc char2int(c: int8): int {.inline.} =
   if c <= cast[int8]('9'):
     return cast[int8](c) - cast[int8]('0');
   return (c and not cast[int8](' ')) - cast[int8]('A') + 10;
-proc string2double(s: ptr char, endptr: ptr ptr char): float64 =
+proc number(b: ptr char, endptr: ptr ptr char): ptr char =
+  var s: cstring = cast[cstring](b)
+  var i = 0
+  var ch: char = s[0]
+  if ch == '-':
+    inc i
   discard """
-  char ch = *s;
-  if (ch == '-')
-      ++s;
-
   double result = 0;
   while (isdigit(*s))
       result = (result * 10) + (*s++ - '0');
@@ -454,7 +453,8 @@ proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.
     tail.next = node
   return node
 
-proc jsonParse(s: Data, size: int32): ErrNo =
+proc jsonParse(b: ptr char, size: int32, endptr: ptr ptr char): ErrNo =
+  var s: cstring = cast[cstring](b)
   var i = 0'i32
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
@@ -463,22 +463,26 @@ proc jsonParse(s: Data, size: int32): ErrNo =
   var keys: array[0.. <JSON_STACK_SIZE, cstring];
   var o: JsonNodeValue
   var pos = -1;
-  #*endptr = s;
+  endptr[] = b;
   var separator: bool = true
   while i < size:
     if isspace(s[i]):
       total += 1
       inc i
       continue
-    let curr = s[i]
+    let curr: ptr char = addr s[i]
     inc i
-    case curr:
+    case curr[]:
     of '-':
       if not isdigit(s[i]) and s[i] != '.':
-        #*endptr = s;
+        endptr[] = addr s[i]
         return JSON_BAD_NUMBER;
     of '0' .. '9':
-        #o = JsonValue(string2double(*endptr, &s));
+        var e: ptr char = addr s[i]
+        var n = number(endptr[], addr e)
+        o = JsonNodeValue(kind: kString, vstring: n)
+        s = cast[cstring](e)
+        i = 0
         if not isdelim(s[i]):
           #*endptr = s;
           return JSON_BAD_NUMBER;
@@ -505,7 +509,8 @@ proc jsonParse(s: Data, size: int32): ErrNo =
     tails[pos].value = o
   echo("totalws=" & $total)
   return JSON_BREAKING_BAD
-proc Sum(s: Data, size: int32): int64 =
+proc Sum(b: ptr char, size: int32): int64 =
+  var s = cast[cstring](b)
   var i = 0'i32
   var total = 0'i64
   echo("size=" & $size)
@@ -516,10 +521,10 @@ proc Sum(s: Data, size: int32): int64 =
   echo("last=" & $(s[i]))
   echo("total=" & $total)
   return total
-proc nim_jsonParse*(b: Data, size: int32, e: ptr ptr int8, val: ptr cint): cint
+proc nim_jsonParse*(b: ptr char, size: int32, e: ptr ptr char, val: ptr cint): cint
   {.cdecl, exportc, dynlib.} =
   #discard Sum(b, size)
-  return cast[cint](jsonParse(b, size))
+  return cast[cint](jsonParse(b, size, e))
 proc test() =
   echo "hi"
 when isMainModule:
