@@ -426,9 +426,9 @@ proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.
   return node
 
 proc jsonParse(full: cstring, size: int32): ErrNoEnd =
+  result.unused = 0
   var next: int32 = 0
   let toofar: int32 = next + size
-  var unused: int32 = 0
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
   var tails: array[0.. <JSON_STACK_SIZE, ptr JsonNode];
@@ -452,7 +452,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
         result.errno = JSON_BAD_NUMBER
         return
     of '0' .. '9':
-        let p = number(full, unused, next)
+        let p = number(full, result.unused, next)
         o = JsonNodeValue(kind: kString, pair: p)
         next = p.send
         if not isdelim(full[next]):
