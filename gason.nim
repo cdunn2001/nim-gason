@@ -402,47 +402,20 @@ proc number(b: ptr char, endptr: ptr ptr char): ptr char =
   var ch: char = s[0]
   if ch == '-':
     inc i
-  discard """
-  double result = 0;
-  while (isdigit(*s))
-      result = (result * 10) + (*s++ - '0');
-
-  if (*s == '.') {
-      ++s;
-
-      double fraction = 1;
-      while (isdigit(*s)) {
-          fraction *= 0.1;
-          result += (*s++ - '0') * fraction;
-      }
-  }
-
-  if (*s == 'e' || *s == 'E') {
-      ++s;
-
-      double base = 10;
-      if (*s == '+')
-          ++s;
-      else if (*s == '-') {
-          ++s;
-          base = 0.1;
-      }
-
-      int exponent = 0;
-      while (isdigit(*s))
-          exponent = (exponent * 10) + (*s++ - '0');
-
-      double power = 1;
-      for (; exponent; exponent >>= 1, base *= base)
-          if (exponent & 1)
-              power *= base;
-
-      result *= power;
-  }
-
-  *endptr = s;
-  return ch == '-' ? -result : result;
-"""
+  while isdigit(s[i]):
+      inc i
+  if s[i] == '.':
+    inc i
+    while isdigit(s[i]):
+      inc i
+  if s[i] == 'e' or s[i] == 'E':
+    inc i
+    if s[i] == '+' or s[i] == '-':
+      inc i
+    while isdigit(s[i]):
+      inc i
+    endptr[] = addr s[i]
+  return addr s[0]  # NOT RIGHT!!!
 
 #proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.} =
 proc insertAfter(tail: ptr JsonNode, node: ptr JsonNode): ptr JsonNode {.inline.} =
@@ -484,14 +457,14 @@ proc jsonParse(b: ptr char, size: int32, endptr: ptr ptr char): ErrNo =
         s = cast[cstring](e)
         i = 0
         if not isdelim(s[i]):
-          #*endptr = s;
+          endptr[] = addr s[i]
           return JSON_BAD_NUMBER;
         break;
     else:
       return JSON_BREAKING_BAD #!!!
     separator = false;
     if pos == -1:
-        #*endptr = s;
+        endptr[] = addr s[i];
         #*value = o;
         return JSON_OK;
     if tags[pos] == JSON_OBJECT:
@@ -504,7 +477,6 @@ proc jsonParse(b: ptr char, size: int32, endptr: ptr ptr char): ErrNo =
       cast[ptr JsonKeyNode](tails[pos]).key = keys[pos];
       keys[pos] = nil
     else:
-      #tails[pos] = insertAfter(tails[pos], (JsonNode *)allocator.allocate(sizeof(JsonNode) - sizeof(char *)));
       tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonNode))))
     tails[pos].value = o
   echo("totalws=" & $total)
