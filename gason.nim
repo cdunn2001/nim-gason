@@ -554,14 +554,18 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
     of '"':
       #echo("after \":" & full[next])
       o = JsonNodeValue(kind: kString, pair: (next, toofar))
-      while next != toofar:
+      while next < toofar:
         var c = full[next]
         inc next
         if c == '"':
           o.pair.send = next
           break
         if c == '\\':
-          inc next  # Skip escaped char.
+          # Skip escaped char(s).
+          if next < toofar and full[next] == 'u':
+            inc(next, 4)
+          else:
+            inc next
       #echo("next=" & $next & ", toofar=" & $toofar)
       if next >= toofar:
         result.unused = toofar
