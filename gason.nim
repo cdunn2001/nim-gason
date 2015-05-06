@@ -471,7 +471,7 @@ proc number(full: cstring, sbeg: int32, send: int32): IntPair =
   if full[i] == '-':
     inc i
   while isdigit(full[i]):
-      inc i
+    inc i
   if full[i] == '.':
     inc i
     while isdigit(full[i]):
@@ -502,7 +502,7 @@ proc listToNode(tail: ptr JsonNode): ptr JsonNode {.inline.} =
 proc jsonParse(full: cstring, size: int32): ErrNoEnd =
   result.unused = 0
   var next: int32 = 0
-  echo("next:" & full[next])
+  #echo("next:" & full[next])
   let toofar: int32 = next + size
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
@@ -522,14 +522,10 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
     #echo("read:" & full[result.unused])
     inc next
     case full[result.unused]:
-    of '-':
-      if not isdigit(full[next]) and full[next] != '.':
-        result.unused = next
-        result.errno = JSON_BAD_NUMBER
-        return
-    of '0' .. '9':
+    of '-', '0' .. '9':
       #echo("after #:" & full[next])
       let p = number(full, result.unused, next)
+      #echo("p:" & $p)
       o = JsonNodeValue(kind: kString, pair: p)
       next = p.send
       if not isdelim(full[next]):
@@ -595,6 +591,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
         result.errno = JSON_MISMATCH_BRACKET
         return
       if (keys[pos] != defaultkey):
+        #echo("unexpected }")
         result.errno = JSON_UNEXPECTED_CHARACTER
         return
       let node = cast[ptr JsonKeyNode](listToNode(tails[pos]))
@@ -624,12 +621,15 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       continue;
     of ':':
       if (separator or keys[pos] == defaultkey):
+        #echo("unexpected :")
         result.errno = JSON_UNEXPECTED_CHARACTER
         return
       separator = true
       continue
     of ',':
       if (separator or keys[pos] != defaultkey):
+        #echo("unexpected ," & $keys[pos] & full[keys[pos].sbeg])
+        #echo("tag:" & $tags[pos])
         result.errno = JSON_UNEXPECTED_CHARACTER
         return
       separator = true
@@ -637,6 +637,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
     of '\0':
       continue
     else:
+      echo("unexpected char:" & full[next-1])
       result.errno = JSON_UNEXPECTED_CHARACTER
       return
     separator = false;
@@ -644,6 +645,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
     if pos == -1:
       result.unused = next
       result.errno = JSON_OK
+      echo("totalws=" & $total)
       #*value = o;
       return
     if tags[pos] == JSON_OBJECT:
@@ -664,7 +666,6 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonNode))))
     tails[pos].value = o
     #echo("assigned o to value")
-  echo("totalws=" & $total)
   result.errno = JSON_BREAKING_BAD
   return
 proc Sum(b: ptr char, size: int32): int64 =
