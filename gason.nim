@@ -466,6 +466,11 @@ proc char2int(c: int8): int {.inline.} =
   if c <= cast[int8]('9'):
     return cast[int8](c) - cast[int8]('0');
   return (c and not cast[int8](' ')) - cast[int8]('A') + 10;
+proc nondelim(full: cstring, sbeg: int32, send: int32): IntPair {.inline.} =
+  var i = sbeg
+  while not isdelim(full[i]):
+    inc i
+  return (sbeg, i)
 proc number(full: cstring, sbeg: int32, send: int32): IntPair =
   var i = sbeg
   if full[i] == '-':
@@ -524,7 +529,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
     case full[result.unused]:
     of '-', '0' .. '9':
       #echo("after #:" & full[next])
-      let p = number(full, result.unused, next)
+      let p = nondelim(full, result.unused, next)
       #echo("p:" & $p)
       o = JsonNodeValue(kind: kString, pair: p)
       next = p.send
