@@ -528,6 +528,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
         result.errno = JSON_BAD_NUMBER
         return
     of '0' .. '9':
+        echo("after #:" & full[next])
         let p = number(full, result.unused, next)
         o = JsonNodeValue(kind: kString, pair: p)
         next = p.send
@@ -537,15 +538,18 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
           return
         break
     of '"':
+      echo("after \":" & full[next])
       o = JsonNodeValue(kind: kString, pair: (next, toofar))
       while next != toofar:
         var c = full[next]
+        echo("then:" & $c)
         inc next
         if c == '"':
           o.pair.send = next
           break
         if c == '\\':
           inc next  # Skip escaped char.
+      echo("next=" & $next & ", toofar=" & $toofar)
       if next >= toofar:
         result.unused = toofar
         result.errno = JSON_BAD_STRING
@@ -554,6 +558,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
         result.unused = next
         result.errno = JSON_BAD_STRING
         return
+      echo("finished str")
       break
     of 't':
       if (not(full[next+0] == 'r' and full[next+1] == 'u' and full[next+2] == 'e' and isdelim(full[next+3]))):
@@ -577,6 +582,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       next += 3;
       break;
     of ']':
+      echo "Found ]"
       if (pos == -1):
         result.errno = JSON_STACK_UNDERFLOW
         return
@@ -588,6 +594,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       dec pos
       break
     of '}':
+      echo "Found }"
       if (pos == -1):
         result.errno = JSON_STACK_UNDERFLOW
         return
