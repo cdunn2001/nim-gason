@@ -4,6 +4,74 @@ const
   JSON_STACK_SIZE = 32
 
 discard """
+    of '"':
+      o = JsonNodeValue(kind: kString, pair: (next, toofar));
+      discard = "
+      for (char *it = s; *s; ++it, ++s) {
+          int c = *it = *s;
+          if (c == '\\') {
+              c = *++s;
+              switch (c) {
+              case '\\':
+              case '"':
+              case '/':
+                  *it = c;
+                  break;
+              case 'b':
+                  *it = '\b';
+                  break;
+              case 'f':
+                  *it = '\f';
+                  break;
+              case 'n':
+                  *it = '\n';
+                  break;
+              case 'r':
+                  *it = '\r';
+                  break;
+              case 't':
+                  *it = '\t';
+                  break;
+              case 'u':
+                  c = 0;
+                  for (int i = 0; i < 4; ++i) {
+                      if (isxdigit(*++s)) {
+                          c = c * 16 + char2int(*s);
+                      } else {
+                          *endptr = s;
+                          return JSON_BAD_STRING;
+                      }
+                  }
+                  if (c < 0x80) {
+                      *it = c;
+                  } else if (c < 0x800) {
+                      *it++ = 0xC0 | (c >> 6);
+                      *it = 0x80 | (c & 0x3F);
+                  } else {
+                      *it++ = 0xE0 | (c >> 12);
+                      *it++ = 0x80 | ((c >> 6) & 0x3F);
+                      *it = 0x80 | (c & 0x3F);
+                  }
+                  break;
+              default:
+                  *endptr = s;
+                  return JSON_BAD_STRING;
+              }
+          } else if ((unsigned int)c < ' ' || c == '\x7F') {
+              *endptr = s;
+              return JSON_BAD_STRING;
+          } else if (c == '"') {
+              *it = 0;
+              ++s;
+              break;
+          }
+      }
+      if (not isdelim(*s)) {
+          *endptr = s;
+          return JSON_BAD_STRING;
+      }
+      break
+      "
 #include "gason.h"
 #include <stdlib.h>
 
@@ -450,10 +518,10 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       total += 1
       inc next
       continue
-    let curr: char = full[next]
-    echo("read:" & curr)
+    result.unused = next
+    echo("read:" & full[result.unused])
     inc next
-    case curr:
+    case full[result.unused]:
     of '-':
       if not isdigit(full[next]) and full[next] != '.':
         result.unused = next
@@ -467,7 +535,26 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
           result.unused = next
           result.errno = JSON_BAD_NUMBER
           return
-        break;
+        break
+    of '"':
+      o = JsonNodeValue(kind: kString, pair: (next, toofar))
+      while next != toofar:
+        var c = full[next]
+        inc next
+        if c == '"':
+          o.pair.send = next
+          break
+        if c == '\\':
+          inc next  # Skip escaped char.
+      if next >= toofar:
+        result.unused = toofar
+        result.errno = JSON_BAD_STRING
+        return
+      if not isdelim(full[next]):
+        result.unused = next
+        result.errno = JSON_BAD_STRING
+        return
+      break
     of 't':
       if (not(full[next+0] == 'r' and full[next+1] == 'u' and full[next+2] == 'e' and isdelim(full[next+3]))):
         result.errno = JSON_BAD_IDENTIFIER
@@ -549,7 +636,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       separator = true
       continue
     of '\0':
-        continue
+      continue
     else:
       result.errno = JSON_UNEXPECTED_CHARACTER
       return
