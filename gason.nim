@@ -448,10 +448,20 @@ type
     value: JsonNodeValue
     next: ptr JsonKeyNode
     key: IntPair
+var
+  aPhony: JsonNode
+  bPhony: JsonKeyNode
+const phony = false
 proc allocNode(): ptr JsonNode {.inline.} =
-  cast[ptr JsonNode](alloc(sizeof(JsonNode)))
+  when phony:
+    return addr aPhony
+  else:
+    cast[ptr JsonNode](alloc(sizeof(JsonNode)))
 proc allocKeyNode(): ptr JsonNode {.inline.} =
-  cast[ptr JsonNode](alloc(sizeof(JsonKeyNode)))
+  when phony:
+    return cast[ptr JsonNode](addr bPhony)
+  else:
+    cast[ptr JsonNode](alloc(sizeof(JsonKeyNode)))
 
 proc getKind(me: JsonNodeValue): JsonValueKind =
   return me.kind
