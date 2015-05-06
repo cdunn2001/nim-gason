@@ -519,7 +519,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       inc next
       continue
     result.unused = next
-    echo("read:" & full[result.unused])
+    #echo("read:" & full[result.unused])
     inc next
     case full[result.unused]:
     of '-':
@@ -528,28 +528,26 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
         result.errno = JSON_BAD_NUMBER
         return
     of '0' .. '9':
-        echo("after #:" & full[next])
-        let p = number(full, result.unused, next)
-        o = JsonNodeValue(kind: kString, pair: p)
-        next = p.send
-        if not isdelim(full[next]):
-          result.unused = next
-          result.errno = JSON_BAD_NUMBER
-          return
-        break
+      #echo("after #:" & full[next])
+      let p = number(full, result.unused, next)
+      o = JsonNodeValue(kind: kString, pair: p)
+      next = p.send
+      if not isdelim(full[next]):
+        result.unused = next
+        result.errno = JSON_BAD_NUMBER
+        return
     of '"':
-      echo("after \":" & full[next])
+      #echo("after \":" & full[next])
       o = JsonNodeValue(kind: kString, pair: (next, toofar))
       while next != toofar:
         var c = full[next]
-        echo("then:" & $c)
         inc next
         if c == '"':
           o.pair.send = next
           break
         if c == '\\':
           inc next  # Skip escaped char.
-      echo("next=" & $next & ", toofar=" & $toofar)
+      #echo("next=" & $next & ", toofar=" & $toofar)
       if next >= toofar:
         result.unused = toofar
         result.errno = JSON_BAD_STRING
@@ -558,43 +556,38 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
         result.unused = next
         result.errno = JSON_BAD_STRING
         return
-      echo("finished str")
-      break
+      #echo("finished str")
     of 't':
       if (not(full[next+0] == 'r' and full[next+1] == 'u' and full[next+2] == 'e' and isdelim(full[next+3]))):
         result.errno = JSON_BAD_IDENTIFIER
         return
       o = JsonNodeValue(kind: kString, pair: (next-1, next+3));
       next += 3;
-      break;
     of 'f':
       if (not(full[next+0] == 'a' and full[next+1] == 'l' and full[next+2] == 's' and full[next+3] == 'e' and isdelim(full[next+4]))):
         result.errno = JSON_BAD_IDENTIFIER
         return
       o = JsonNodeValue(kind: kString, pair: (next-1, next+4));
       next += 4;
-      break;
     of 'n':
       if (not(full[next] == 'u' and full[next+1] == 'l' and full[next+2] == 'l' and isdelim(full[next+3]))):
         result.errno = JSON_BAD_IDENTIFIER
         return
       o = JsonNodeValue(kind: kString, pair: (next-1, next+3));
       next += 3;
-      break;
     of ']':
-      echo "Found ]"
+      #echo "Found ]"
       if (pos == -1):
         result.errno = JSON_STACK_UNDERFLOW
         return
       if (tags[pos] != JSON_ARRAY):
-          result.errno = JSON_MISMATCH_BRACKET
-          return
+        result.errno = JSON_MISMATCH_BRACKET
+        return
       let node = listToNode(tails[pos])
       o = JsonNodeValue(kind: kArray, vArray: node)
       dec pos
-      break
     of '}':
-      echo "Found }"
+      #echo "Found }"
       if (pos == -1):
         result.errno = JSON_STACK_UNDERFLOW
         return
@@ -607,9 +600,8 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       let node = cast[ptr JsonKeyNode](listToNode(tails[pos]))
       o = JsonNodeValue(kind: kHash, vHash: node)
       dec pos
-      break
     of '[':
-      echo "Found ["
+      #echo "Found ["
       inc pos
       if (pos == JSON_STACK_SIZE):
         result.errno = JSON_STACK_OVERFLOW
@@ -620,7 +612,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       separator = true
       continue
     of '{':
-      echo "Found {"
+      #echo "Found {"
       inc pos
       if (pos == JSON_STACK_SIZE):
         result.errno = JSON_STACK_OVERFLOW
@@ -648,14 +640,18 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       result.errno = JSON_UNEXPECTED_CHARACTER
       return
     separator = false;
+    #echo("bottom of while")
     if pos == -1:
-        result.unused = next
-        result.errno = JSON_OK
-        #*value = o;
-        return
+      result.unused = next
+      result.errno = JSON_OK
+      #*value = o;
+      return
     if tags[pos] == JSON_OBJECT:
+      #echo("OBJECT")
       if keys[pos].send == 0:
+        #echo("No end in sight.")
         if o.getKind() != kString:
+          #echo("Not a str!")
           result.errno = JSON_UNQUOTED_KEY
           return
         keys[pos] = o.toString();
@@ -664,8 +660,10 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       cast[ptr JsonKeyNode](tails[pos]).key = keys[pos];
       keys[pos] = defaultkey
     else:
+      #echo("ARRAY?")
       tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonNode))))
     tails[pos].value = o
+    #echo("assigned o to value")
   echo("totalws=" & $total)
   result.errno = JSON_BREAKING_BAD
   return
