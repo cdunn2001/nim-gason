@@ -448,6 +448,10 @@ type
     value: JsonNodeValue
     next: ptr JsonKeyNode
     key: IntPair
+proc allocNode(): ptr JsonNode {.inline.} =
+  cast[ptr JsonNode](alloc(sizeof(JsonNode)))
+proc allocKeyNode(): ptr JsonNode {.inline.} =
+  cast[ptr JsonNode](alloc(sizeof(JsonKeyNode)))
 
 proc getKind(me: JsonNodeValue): JsonValueKind =
   return me.kind
@@ -663,12 +667,12 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
           return
         keys[pos] = o.toString();
         continue
-      tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonKeyNode))))
+      tails[pos] = insertAfter(tails[pos], allocKeyNode())
       cast[ptr JsonKeyNode](tails[pos]).key = keys[pos];
       keys[pos] = defaultkey
     else:
       #echo("ARRAY?")
-      tails[pos] = insertAfter(tails[pos], cast[ptr JsonNode](alloc(sizeof(JsonNode))))
+      tails[pos] = insertAfter(tails[pos], allocNode())
     tails[pos].value = o
     #echo("assigned o to value")
   result.errno = JSON_BREAKING_BAD
