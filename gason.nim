@@ -316,7 +316,126 @@ proc nim_jsonParse*(b: ptr char, size: int32, e: ptr ptr char, val: ptr cint): c
   let full: cstring = cast[cstring](b)
   var res = jsonParse(full, size)
   echo("res=" & $res)
+proc pass(data: string, extra=0) =
+  echo "pass(" & data & ")"
+  var (err, endlen) = jsonParse(data.cstring, len(data).int32)
+  assert err == JSON_OK, $err
+  echo "endlen=", endlen, " extra=", extra, "len=", data.len
+  assert endlen + extra == data.len
+  assert false
+proc fail(data: string) =
+  echo "fail(" & data & ")"
+  var (err, endlen) = jsonParse(data.cstring, len(data).int32)
+  assert err != JSON_OK
 proc test() =
+  #pass("""1234567890""");
+  #pass("""1e-21474836311""");
+  #pass("""1e-42147483631""");
+  pass(""""A JSON payload should be an object or array, not a string."""");
+  fail("""["Unclosed array"""");
+  fail("""{unquoted_key: "keys must be quoted"}""");
+  pass("""["extra comma",]""");
+  fail("""["double extra comma",,]""");
+  fail("""[   , "<-- missing value"]""");
+  fail("""[ 1 [   , "<-- missing inner value 1"]]""");
+  fail("""{ "1" [   , "<-- missing inner value 2"]}""");
+  fail("""[ "1" {   , "<-- missing inner value 3":"x"}]""");
+  pass("""["Comma after the close"],""", 1);
+  pass("""{"Extra comma": true,}""");
+  pass("""{"Extra value after close": true} "misplaced quoted value"""", 25);
+  fail("""{"Illegal expression": 1 + 2}""");
+  fail("""{"Illegal invocation": alert()}""");
+  pass("""{"Numbers cannot have leading zeroes": 013}""");
+  fail("""{"Numbers cannot be hex": 0x14}""");
+  fail("""["Illegal backslash escape: \x15"]""");
+  fail("""[\naked]""");
+  fail("""["Illegal backslash escape: \017"]""");
+  fail("""[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[["Too deep"]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]""");
+  pass("""{"Missing colon" null}""");
+  fail("""{"Unfinished object"}""");
+  fail("""{"Unfinished object 2" null "x"}""");
+  fail("""{"Double colon":: null}""");
+  fail("""{"Comma instead of colon", null}""");
+  fail("""["Colon instead of comma": false]""");
+  fail("""["Bad value", truth]""");
+  fail("""['single quote']""");
+  fail("""["	tab	character	in	string	"]""");
+  fail("""["line
+br]""");
+  fail("""["line\
+br]""");
+  pass("""[0e]""");
+  pass("""[0e+]""");
+  fail("""[0e+-1]""");
+  fail("""{"Comma instead if closing brace": true,""");
+  fail("""["mismatch"}""");
+  pass("""[[[[[[[[[[[[[[[[[[["Not too deep"]]]]]]]]]]]]]]]]]]]""");
+  pass("""[1, 2, "хУй", [[0.5], 7.11, 13.19e+1], "ba\u0020r", [ [ ] ], -0, -.666, [true, null], {"WAT?!": false}]""");
+  pass("""{
+    "JSON Test Pattern pass3": {
+        "The outermost value": "must be an object or array.",
+        "In this test": "It is an object."
+    }
+}
+""");
+  pass("""[
+    "JSON Test Pattern pass1",
+    {"object with 1 member":["array with 1 element"]},
+    {},
+    [],
+    -42,
+    true,
+    false,
+    null,
+    {
+        "integer": 1234567890,
+        "real": -9876.543210,
+        "e": 0.123456789e-12,
+        "E": 1.234567890E+34,
+        "":  23456789012E66,
+        "zero": 0,
+        "one": 1,
+        "space": " ",
+        "quote": "\"",
+        "backslash": "\\",
+        "controls": "\b\f\n\r\t",
+        "slash": "/ & \/",
+        "alpha": "abcdefghijklmnopqrstuvwyz",
+        "ALPHA": "ABCDEFGHIJKLMNOPQRSTUVWYZ",
+        "digit": "0123456789",
+        "0123456789": "digit",
+        "special": "`1~!@#$%^&json()_+-={':[,]}|;.</>?",
+        "hex": "\u0123\u4567\u89AB\uCDEF\uabcd\uef4A",
+        "true": true,
+        "false": false,
+        "null": null,
+        "array":[  ],
+        "object":{  },
+        "address": "50 St. James Street",
+        "url": "http://www.JSON.org/",
+        "comment": "// /json <!-- --",
+        "# -- --> json/": " ",
+        " s p a c e d " :[1,2 , 3
+
+,
+
+4 , 5        ,          6           ,7        ],"compact":[1,2,3,4,5,6,7],
+        "jsontext": "{\"object with 1 member\":[\"array with 1 element\"]}",
+        "quotes": "&#34; \u0022 %22 0x22 034 &#x22;",
+        "\/\\\"\uCAFE\uBABE\uAB98\uFCDE\ubcda\uef4A\b\f\n\r\t`1~!@#$%^&json()_+-=[]{}|;:',./<>?"
+: "A key can be any string"
+    },
+    0.5 ,98.6
+,
+99.44
+,
+
+1066,
+1e1,
+0.1e1,
+1e-1,
+1e00,2e+00,2e-00
+,"rosebud"]""");
   echo "hi"
 when isMainModule:
   test()
