@@ -123,7 +123,14 @@ proc listToNode(tail: ptr JsonNode): ptr JsonNode {.inline.} =
     return head
   return nil
 
+proc jsonPreParse(elems: var seq[IntPair], full: cstring, size: int32): ErrNoEnd =
+  result.errno = JSON_OK
+  result.unused = 0
+
 proc jsonParse(full: cstring, size: int32): ErrNoEnd =
+  var elems = newSeq[IntPair]()
+  if true:
+    return jsonPreParse(elems, full, size)
   result.unused = 0
   var next: int32 = 0
   echo("len:", size)
