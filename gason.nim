@@ -130,9 +130,9 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
   let toofar: int32 = next + size
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
-  var tails: array[0.. <JSON_STACK_SIZE, ptr JsonNode];
-  var tags: array[0.. <JSON_STACK_SIZE, JsonTag]
-  var keys: array[0.. <JSON_STACK_SIZE, IntPair];
+  var tails: array[JSON_STACK_SIZE, ptr JsonNode];
+  var tags: array[JSON_STACK_SIZE, JsonTag]
+  var keys: array[JSON_STACK_SIZE, IntPair];
   let defaultkey: IntPair = (sbeg: 0'i32, send: 0'i32)
   var o: JsonNodeValue
   var pos = -1;
@@ -143,7 +143,7 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
       inc next
       continue
     result.unused = next
-    #echo("read:" & full[result.unused])
+    #echo("full[" & $next & "]:" & full[result.unused])
     inc next
     case full[result.unused]:
     of '-', '0' .. '9':
