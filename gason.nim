@@ -126,7 +126,7 @@ proc listToNode(tail: ptr JsonNode): ptr JsonNode {.inline.} =
 proc jsonParse(full: cstring, size: int32): ErrNoEnd =
   result.unused = 0
   var next: int32 = 0
-  #echo("next:" & full[next])
+  echo("len:", size)
   let toofar: int32 = next + size
   var total = 0'i64
   #JsonNode *tails[JSON_STACK_SIZE];
@@ -171,14 +171,16 @@ proc jsonParse(full: cstring, size: int32): ErrNoEnd =
             inc(next, 4)
           else:
             inc next
-      #echo("next=" & $next & ", toofar=" & $toofar)
-      if next >= toofar:
-        result.unused = toofar
-        result.errno = JSON_BAD_STRING
-        return
+      echo("next=" & $next & ", toofar=" & $toofar)
+      #if next >= toofar:
+      #  result.unused = toofar
+      #  result.errno = JSON_BAD_STRING
+      #  echo "next=", next, " bad0"
+      #  return
       if not isdelim(full[next]):
         result.unused = next
         result.errno = JSON_BAD_STRING
+        echo "next=", next, " bad1"
         return
       #echo("finished str")
     of 't':
