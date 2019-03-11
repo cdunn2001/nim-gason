@@ -123,9 +123,44 @@ proc listToNode(tail: ptr JsonNode): ptr JsonNode {.inline.} =
     return head
   return nil
 
+type
+  Node4 = tuple[c: char, sbeg: int32, send: int32, size: int32]
 proc jsonPreParse(elems: var seq[IntPair], full: cstring, size: int32): ErrNoEnd =
   result.errno = JSON_OK
   result.unused = 0
+  var next: int32 = 0
+  echo("len:", size)
+  let toofar: int32 = next + size
+  var totalws = 0'i64
+  var stack = newSeq[Node4]()
+  stack.add( (c: '\0', sbeg: 0, slen: size, size: 0) ) # top-of-stack
+  while next < toofar:
+    let c = full[next]
+    inc next
+    if isspace(c):
+      inc totalws # strictly informative
+      continue
+    case c:
+    of '[':
+      stack.add( (c: c, sbeg: next-1, send: 0, size: 0) )
+      continue
+    of '{':
+      stack.add( (c: c, sbeg: next-1, send: 0, size: 0) )
+      continue
+    of '"':
+      stack.add( (c: '"', sbeg: next-1,
+        slen: findStringEnd(full, next) - next, size: 0) )
+      continue
+    of ']':
+    of '}':
+    of ':':
+    of ',':
+    of '-', '0' .. '9':
+    else:
+      echo("unexpected char:" & full[next-1])
+      result.errno = JSON_UNEXPECTED_CHARACTER
+      return
+
 
 proc jsonParse(full: cstring, size: int32): ErrNoEnd =
   var elems = newSeq[IntPair]()
